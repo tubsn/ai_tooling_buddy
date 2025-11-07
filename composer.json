@@ -1,0 +1,12 @@
+{
+    "require": {
+        "flundr/core": "^2.0",
+        "guzzlehttp/guzzle": "^7.9",
+        "orhanerday/open-ai": "^5.3"        
+    },
+    "autoload": {
+        "psr-4": {
+			"app\\": "app/"
+		}
+    }
+}
