@@ -218,9 +218,11 @@ class OpenAI
         return $tools;
     }
 
-    public function register_tool(string $remoteName, array $schema, callable $callable): void
+    public function register_tool(string $remoteName, array $schema, ?callable $callable = null): void
     {
+        $isBuiltin = isset($schema['type']) && $schema['type'] !== 'function' && !isset($schema['function']);
         $this->toolRegistry[$remoteName] = [
+            'mode' => $isBuiltin ? 'builtin' : 'function',
             'schema' => $schema,
             'callable' => $callable,
         ];

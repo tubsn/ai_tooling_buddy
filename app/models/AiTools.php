@@ -17,8 +17,11 @@ class AiTools
 
 		$ai->messages = [
 			['role' => 'system', 'content' => 'You are a helpful assistant.'],
-			['role' => 'user', 'content' => 'Welcher Wochentag war 2024-12-24?'],
+			['role' => 'user', 'content' => 'Suche bitte im Netz - Wer ist gerade Papst?'],
 		];
+
+		$answerText = $ai->complete();
+		dd($answerText);
 
 		// Dein SSE-Controller:
 		header('Content-Type: text/event-stream');

@@ -26,6 +26,9 @@ class MCPTools
                 return self::get_weekday($args);
             }
         );
+
+        $ai->register_tool('web_search', ['type' => 'builtin', 'name' => 'web_search']);
+
     }
 
     public static function get_weekday(array $args): string
