@@ -206,13 +206,24 @@ class OpenAI
         return is_string($result) ? $result : json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
-    private function tools_schema(): array
+    private function toolsSchema(): array
     {
         $tools = [];
         foreach ($this->toolRegistry as $toolName => $entry) {
+            $mode = $entry['mode'] ?? 'function';
+            if ($mode === 'builtin') {
+                // Built‑In (z. B. ['type'=>'web_search'] oder ['type'=>'file_search'])
+                $tools[] = $entry['schema'];
+                continue;
+            }
+
+            // Function-Tool (flach)
+            $schema = $entry['schema'] ?? [];
             $tools[] = [
                 'type' => 'function',
-                'function' => $entry['schema'],
+                'name' => $schema['name'] ?? $toolName,
+                'description' => $schema['description'] ?? '',
+                'parameters' => $schema['parameters'] ?? new \stdClass(),
             ];
         }
         return $tools;
