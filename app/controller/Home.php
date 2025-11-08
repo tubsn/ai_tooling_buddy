@@ -7,15 +7,17 @@ class Home extends Controller {
 
 	public function __construct() {
 		$this->view('DefaultLayout');
-		$this->models('Generator');
+		$this->models('Generator,AiTools');
 	}
 
 	public function index() {
 
-		$data = $this->Generator->use_tool();
-		dd($data);
+		$this->AiTools->test();
 
-		$this->view->render('example');
+		//$data = $this->Generator->use_tool();
+		//dd($data);
+
+		//$this->view->render('example');
 	}
 
 }

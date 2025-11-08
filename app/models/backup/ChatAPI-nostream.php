@@ -28,9 +28,6 @@ class ChatAPI
 
 		if ($this->runs > 2) {
 			throw new \Exception('Runs:' . $this->runs . ' | Output: ' . json_encode($this->output), 400);
-			//dump($this->output);
-			//die;
-			return $this->output;
 		}
 
 		$this->runs++;
@@ -76,12 +73,6 @@ class ChatAPI
 
 
 			if (isset($response['choices'][0]['message']['tool_calls'])) {
-
-				/*
-				if ($this->runs == 2) {
-					dd($response);
-				}
-				*/
 
 				$toolInfo = [
 					'role' => 'assistant',
