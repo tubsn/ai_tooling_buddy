@@ -27,7 +27,7 @@ class MCPTools
             }
         );
 
-        $ai->register_tool('web_search', ['type' => 'builtin', 'name' => 'web_search']);
+       // $ai->register_tool('web_search', ['type' => 'builtin', 'name' => 'web_search']); geht nicht mit completitions api
 
     }
 
