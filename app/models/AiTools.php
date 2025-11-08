@@ -10,7 +10,7 @@ class AiTools
 
 	public function test() {
 
-		/*
+		
 		$connection = new \app\models\ai\ConnectionHandler(CHATGPTKEY);
 		$ai = new \app\models\ai\OpenAI($connection);
 		\app\models\ai\MCPTools::registerAll($ai);
@@ -31,7 +31,7 @@ class AiTools
 			}
 			flush();
 		});
-		*/
+		
 
 		/*
 		$connection = new \app\models\ai\ConnectionHandler(CHATGPTKEY);
