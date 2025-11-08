@@ -13,6 +13,8 @@ class ConnectionHandler
     private string $rawResponseBody = '';
     private bool $abortStream = false;
 
+    public ?string $debugRequestFile = 'debug.json';
+
     public function __construct(
         string $apiKey,
         string $baseUrl = 'https://api.openai.com',
@@ -39,6 +41,14 @@ class ConnectionHandler
         $jsonPayload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($jsonPayload === false) {
             throw new \RuntimeException('JSON encode payload failed: ' . json_last_error_msg());
+        }
+
+        if ($this->debugRequestFile) {
+            file_put_contents(
+                $this->debugRequestFile,
+                "POST " . $url . "\n" . $jsonPayload . "\n\n",
+                FILE_APPEND
+            );
         }
 
         $curlHandle = curl_init();
