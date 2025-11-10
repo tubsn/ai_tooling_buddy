@@ -9,11 +9,13 @@ class ConnectionHandler
 	private string $apiPath;
 	private array $defaultCurlOptions;
 
+	// required for stream handling
 	private string $sseBuffer = '';
 	private string $rawResponseBody = '';
 	private bool $abortStream = false;
 
-	public ?string $debugRequestFile = LOGS . 'ai-requests.json';
+	public $debugRequest = false;
+	public $debugResponse = false;
 
 	public function __construct(
 		string $apiKey,
@@ -26,6 +28,62 @@ class ConnectionHandler
 		$this->apiPath = $apiPath;
 		$this->defaultCurlOptions = $defaultCurlOptions;
 	}
+
+	public function create_payload_logfile($url, $jsonPayload) {
+		$now = date('Y-m-d H:i:s');
+		$file = LOGS . 'ai-requests.json';
+		$content = 'Request: ' . $now . ' - ' . $url . "\n" . $jsonPayload . "\n\n";
+
+		file_put_contents($file, $content, FILE_APPEND);
+	}
+
+	public function create_response_logfile($response) {
+		$now = date('Y-m-d H:i:s');
+		$file = LOGS . 'ai-responses.json';
+		$content = 'Response: '. $now . "\n" . json_encode($response) . "\n\n";
+
+		file_put_contents($file, $content, FILE_APPEND);
+	}
+
+	private function handleSseWrite($curlHandleInner, $incomingData, callable $onChunk): int {
+		$this->rawResponseBody .= $incomingData;
+		if ($this->abortStream) { return 0; }
+
+		$this->sseBuffer .= $incomingData;
+
+		while (($newlinePosition = strpos($this->sseBuffer, "\n")) !== false) {
+			$line = trim(substr($this->sseBuffer, 0, $newlinePosition));
+			$this->sseBuffer = substr($this->sseBuffer, $newlinePosition + 1);
+
+			if ($line === '' || stripos($line, 'data:') !== 0) { continue; }
+
+			$payloadLine = trim(substr($line, 5));
+
+			if ($payloadLine === '') { continue; }
+			if ($payloadLine === '[DONE]') { return strlen($incomingData); }
+
+			$chunk = json_decode($payloadLine, true);
+			if (!is_array($chunk)) { continue; }
+
+			if (isset($chunk['error'])) {
+				$this->abortStream = true;
+				$onChunk(['type' => 'response.error', 'error' => $chunk['error']]);
+				return 0;
+			}
+
+			$callbackResult = $onChunk($chunk);
+			if ($callbackResult === false) {
+				$this->abortStream = true;
+				return 0;
+			}
+		}
+
+		return strlen($incomingData);
+	}
+
+
+
+
 
 	public function request(array $payload, ?callable $onChunk = null, ?string $pathOverride = null): array {
 		
@@ -40,6 +98,10 @@ class ConnectionHandler
 			throw new \RuntimeException('JSON encode payload failed: ' . json_last_error_msg());
 		}
 
+		if ($this->debugRequest) {
+			$this->create_payload_logfile($url, $jsonPayload);
+		}
+
 		$curlHandle = curl_init();
 		if ($curlHandle === false) {throw new \RuntimeException('curl_init failed');}
 
@@ -50,9 +112,6 @@ class ConnectionHandler
 			'Expect:',
 		];
 
-		if ($this->debugRequestFile) {
-			file_put_contents($this->debugRequestFile, 'POST ' . $url . "\n" . $jsonPayload . "\n\n", FILE_APPEND);
-		}
 		$options = [
 			CURLOPT_URL => $url,
 			CURLOPT_POST => true,
@@ -141,7 +200,6 @@ class ConnectionHandler
 		}
 
 		if ($curlErrorCode !== 0) {throw new \RuntimeException('Transport error: ' . $curlErrorMessage);}
-		
 		if (!is_string($responseBody)) {throw new \RuntimeException('Empty response body');}
 
 		$decoded = json_decode($responseBody, true);
@@ -156,7 +214,9 @@ class ConnectionHandler
 			throw new \RuntimeException('API error: ' . ($decoded['error']['message'] ?? 'unknown'));
 		}
 
-		file_put_contents(LOGS . 'resp.json', json_encode($decoded), FILE_APPEND);
+		if ($this->debugResponse) {
+			$this->create_response_logfile($decoded);
+		}
 
 		return $decoded;
 	}

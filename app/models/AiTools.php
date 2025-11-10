@@ -17,6 +17,37 @@ class AiTools
 		$this->ai = new OpenAI($this->connection);
 		$this->tools = new MCPTools();
 		$this->tools->registerAll($this->ai);
+
+		$this->clear_logs();
+	}
+
+	public function clear_logs() {
+		$files = glob(rtrim(LOGS, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '*');
+		foreach ($files as $file) {
+			if (is_file($file)) {@unlink($file);}
+		}
+	}
+
+	public function stream_test() {
+
+		$ai = $this->ai;
+		$ai->model = 'gpt-5-mini';
+		$ai->reasoning = 'minimal';
+		$ai->messages = [
+			['role' => 'user', 'content' => 'Erzähl mir in 2 Sätzen wie die Sonne entstand.'],
+			['role' => 'assistant', 'content' => 'Die Sonne entstand aus einer kollabierenden Wolke aus Gas und Staub, die unter ihrer eigenen Gravitation zusammengezogen wurde. Durch den Kollaps stieg die Dichte, setzte Kernfusionsprozesse in Gang und formte so den jungen Stern.'],
+			['role' => 'user', 'content' => 'Zähle bitte mit Hilfe des count_chars Tools, die Buchstaben deiner Antwort zusammen'],
+
+		];
+
+		header('Content-Type: text/event-stream');
+		header('Cache-Control: no-cache');
+		$this->ai->stream(function (array $event) {
+			echo 'data: ' . json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
+			if (function_exists('ob_flush')) { @ob_flush(); }
+			flush();
+		});
+
 	}
 
 	public function test() {
@@ -25,11 +56,9 @@ class AiTools
 
 		$ai->model = 'gpt-5-mini';
 		//$ai->model = 'gpt-5.1';
-		//$ai->reasoning = 'minimal';
+		$ai->reasoning = 'minimal';
 		//$ai->jsonMode = true;
-
-
-		$ai->debugResponseFile = LOGS . 'responses.json';
+		//$ai->debugResponseFile = LOGS . 'openai-responses.json';
 
 		/* Force a Json_Schema
 		$ai->jsonSchema = [
@@ -42,11 +71,11 @@ class AiTools
 		];
 		*/
 
+
 		$ai->messages = [
-			['role' => 'system', 'content' => 'Bei aktuellen Fakten MUST du das Tool web_search aufrufen. Gib erst nach erfolgreichem web_search eine Antwort. Gib niemals nur eine Ankündigung ohne tool_call.'],
-			['role' => 'user', 'content' => 'Welcher Wochentag war 30.05.1983?'],
-			['role' => 'user', 'content' => 'Such bitte heraus wer aktuell papst ist.'],
-			['role' => 'system', 'content' => 'Fasse Ergebnisse aller Tools zusammen.'],
+			['role' => 'system', 'content' => 'keine Rückfragen einfach ergebnis ausgeben.'],
+			['role' => 'user', 'content' => 'Hey wie gehts'],
+			['role' => 'user', 'content' => 'Welcher Tag war 30.05.1983'],
 		];
 
 		

@@ -13,7 +13,7 @@ class OpenAI
 	public ?array $jsonSchema = null;
 
 	public ?string $debugResponseFile = null;
-	public ?string $debugEventFile = null;
+	public ?string $debugEventFile = LOGS . 'response-events.json';
 
 	private ?Closure $onDelta = null;
 	private ?string $lastResponseId = null;
@@ -66,13 +66,15 @@ class OpenAI
 
 	public function write_debug_log($response, $file) {
 		$output = json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-		file_put_contents($file, $output);
+		$output .= "\n\n";
+		file_put_contents($file, $output, FILE_APPEND);
 	}
 
 	public function complete(): string {
 		$finalText = '';
 
 		while (true) {
+
 			$requestOptions = $this->build_options(false);
 			$responseData = $this->connection->request($requestOptions, null);
 
@@ -92,10 +94,7 @@ class OpenAI
 			$this->toolCalls = $this->parse_function_tool_calls($responseData);
 			$this->pendingToolOutputs = [];
 
-			if (empty($this->toolCalls)) {
-				break;
-			}
-
+			if (empty($this->toolCalls)) {break;}
 			$this->execute_tools();
 		}
 
@@ -136,9 +135,13 @@ class OpenAI
 		$isFollowUp = $this->lastResponseId !== null && !empty($this->pendingToolOutputs);
 
 		$options['model'] = $this->model;
-		//$options['reasoning']['effort'] = $this->reasoning;
 		$options['stream'] = $useStream;
 
+		if ($this->reasoning) {
+			$options['reasoning']['effort'] = $this->reasoning;
+		}
+
+		// this adds responses if tool calls are made 
 		if ($isFollowUp) {
 			$options['previous_response_id'] = $this->lastResponseId;
 			$options['input'] = array_map(
@@ -152,7 +155,7 @@ class OpenAI
 			return $options;
 		}
 
-		$options['input'] = $this->convert_messages_to_input($this->messages);
+		$options['input'] = $this->messages;
 		$options['tools'] = $this->tools_schema();
 		$options['tool_choice'] = 'auto';
 
@@ -185,38 +188,6 @@ class OpenAI
 		];
 
 		return $options;
-	}
-
-	private function convert_messages_to_input(array $messages): array {
-		$inputItems = [];
-		foreach ($messages as $messageItem) {
-			$role = $messageItem['role'] ?? 'user';
-			$content = $messageItem['content'] ?? '';
-
-			// Allowed roles only
-			if (!in_array($role, ['system', 'user', 'assistant', 'developer'], true)) {
-				continue;
-			}
-
-			if (is_array($content) && isset($content[0]['type'])) {
-				$inputItems[] = ['role' => $role, 'content' => $content];
-				continue;
-			}
-
-			$textValue = $content;
-			if ($textValue === null) {
-				$textValue = '';
-			}
-			if (!is_string($textValue)) {
-				$textValue = json_encode($textValue, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-			}
-
-			$inputItems[] = [
-				'role' => $role,
-				'content' => [['type' => 'input_text', 'text' => $textValue]],
-			];
-		}
-		return $inputItems;
 	}
 
 	private function tools_schema(): array {

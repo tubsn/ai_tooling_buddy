@@ -26,6 +26,26 @@ class MCPTools
 			function (array $args) {return $this->get_weekday($args);}
 		);
 
+
+		$ai->register_tool(
+			'count_chars',
+			[
+				'name' => 'count_chars',
+				'description' => 'Count the Chars of given string',
+				'parameters' => [
+					'type' => 'object',
+					'properties' => [
+						'text' => [
+							'type' => 'string',
+							'description' => 'Text in String format',
+						],
+					],
+					'required' => ['text'],
+				],
+			],
+			function (array $args) {return $this->count_chars($args);}
+		);
+
 		// OpenAI Built-Ins (keine Callables nötig)
 		//$ai->register_tool('web_search', ['type' => 'web_search']);
 		//$ai->register_tool('file_search', ['type' => 'file_search']);
@@ -39,4 +59,10 @@ class MCPTools
 		}
 		return date('l', $timestamp);
 	}
+
+	public function count_chars(array $args) {
+		$string = $args['text'] ?? '';
+		return strlen($string);
+	}
+
 }

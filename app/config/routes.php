@@ -7,6 +7,9 @@ $routes->post('/article/{id:\d+}', 'Controller@Action'); With ID-Parameter (Nume
 */
 
 $routes->get('/', 'Home@index');
+$routes->get('/chat', 'Home@chat');
+$routes->get('/stream', 'Home@stream');
+$routes->get('/debug', 'Home@debug');
 
 
 

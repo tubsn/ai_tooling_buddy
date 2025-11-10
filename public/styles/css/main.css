@@ -1,4 +1,26 @@
-/* Variables */
+/* Colors */
 :root {
---blue: #05a5c8;
+--primary: #132348;
+--primary-dark: color-mix(in srgb, var(--primary), #000 25%);
+--primary-darker: color-mix(in srgb, var(--primary), #000 60%);
+--primary-medium: color-mix(in srgb, var(--primary), #000 10%);
+--primary-light: color-mix(in srgb, var(--primary), #fff 25%);
+--primary-lighter: color-mix(in srgb, var(--primary), #fff 50%);
+--primary-lightest: color-mix(in srgb, var(--primary), #fff 75%);
+--warning: #934f4f;
+--highlight: #cedfee;
+--positive: #bee8af;
+--grey: #efefef;
+--grey-modal: #e7e7e7;
+--grey-light: color-mix(in srgb, var(--grey), #fff 50%);
+--grey-dark: color-mix(in srgb, var(--grey), #000 20%);
+--grey-darker: color-mix(in srgb, var(--grey), #000 40%);
 }
+
+
+
+
+.box {background-color: var(--grey); padding:1em;}
+
+button:disabled {cursor: not-allowed; opacity: 0.7;}
+textarea {height:300px;}
