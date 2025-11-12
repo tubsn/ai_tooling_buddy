@@ -14,7 +14,7 @@ class ConnectionHandler
 	private string $rawResponseBody = '';
 	private bool $abortStream = false;
 
-	public $debugRequest = false;
+	public $debugRequest = true;
 	public $debugResponse = false;
 
 	public function __construct(
@@ -44,46 +44,6 @@ class ConnectionHandler
 
 		file_put_contents($file, $content, FILE_APPEND);
 	}
-
-	private function handleSseWrite($curlHandleInner, $incomingData, callable $onChunk): int {
-		$this->rawResponseBody .= $incomingData;
-		if ($this->abortStream) { return 0; }
-
-		$this->sseBuffer .= $incomingData;
-
-		while (($newlinePosition = strpos($this->sseBuffer, "\n")) !== false) {
-			$line = trim(substr($this->sseBuffer, 0, $newlinePosition));
-			$this->sseBuffer = substr($this->sseBuffer, $newlinePosition + 1);
-
-			if ($line === '' || stripos($line, 'data:') !== 0) { continue; }
-
-			$payloadLine = trim(substr($line, 5));
-
-			if ($payloadLine === '') { continue; }
-			if ($payloadLine === '[DONE]') { return strlen($incomingData); }
-
-			$chunk = json_decode($payloadLine, true);
-			if (!is_array($chunk)) { continue; }
-
-			if (isset($chunk['error'])) {
-				$this->abortStream = true;
-				$onChunk(['type' => 'response.error', 'error' => $chunk['error']]);
-				return 0;
-			}
-
-			$callbackResult = $onChunk($chunk);
-			if ($callbackResult === false) {
-				$this->abortStream = true;
-				return 0;
-			}
-		}
-
-		return strlen($incomingData);
-	}
-
-
-
-
 
 	public function request(array $payload, ?callable $onChunk = null, ?string $pathOverride = null): array {
 		
@@ -194,6 +154,7 @@ class ConnectionHandler
 				$decodedError = json_decode($this->rawResponseBody, true);
 				$apiMessage = $decodedError['error']['message'] ?? 'Unknown API error';
 				throw new \RuntimeException('Stream HTTP error: ' . $httpStatus . ' - ' . $apiMessage);
+
 			}
 
 			return [];

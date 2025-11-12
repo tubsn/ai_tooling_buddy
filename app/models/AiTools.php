@@ -4,6 +4,8 @@ namespace app\models;
 use \app\models\ai\OpenAi;
 use \app\models\ai\MCPTools;
 use \app\models\ai\ConnectionHandler;
+use flundr\utility\Session;
+use flundr\utility\Log;
 
 class AiTools
 {
@@ -21,23 +23,40 @@ class AiTools
 		$this->clear_logs();
 	}
 
-	public function clear_logs() {
-		$files = glob(rtrim(LOGS, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '*');
-		foreach ($files as $file) {
-			if (is_file($file)) {@unlink($file);}
+	public function chat($input) {
+
+		$ai = $this->ai;
+		$ai->model = 'gpt-4.1';
+		//$ai->reasoning = 'minimal';
+
+		$ai->messages = [
+			['role' => 'system', 'content' => 'Bitte antworte auf deutsch.'],
+			['role' => 'user', 'content' => $input],
+		];
+
+		$conversation = Session::get('conversation');
+		if (!empty($conversation)) {
+			array_push($conversation, ['role' => 'user', 'content' => $input]);
+			$ai->messages = $conversation;	
 		}
+
+
+		$this->sse();
+
 	}
+
+
+
 
 	public function stream_test() {
 
+		//$data = $this->get_header_input();
+
 		$ai = $this->ai;
 		$ai->model = 'gpt-5-mini';
-		$ai->reasoning = 'minimal';
+		//$ai->reasoning = 'minimal';
 		$ai->messages = [
 			['role' => 'user', 'content' => 'Erzähl mir in 2 Sätzen wie die Sonne entstand.'],
-			['role' => 'assistant', 'content' => 'Die Sonne entstand aus einer kollabierenden Wolke aus Gas und Staub, die unter ihrer eigenen Gravitation zusammengezogen wurde. Durch den Kollaps stieg die Dichte, setzte Kernfusionsprozesse in Gang und formte so den jungen Stern.'],
-			['role' => 'user', 'content' => 'Zähle bitte mit Hilfe des count_chars Tools, die Buchstaben deiner Antwort zusammen'],
-
 		];
 
 		header('Content-Type: text/event-stream');
@@ -47,7 +66,6 @@ class AiTools
 			if (function_exists('ob_flush')) { @ob_flush(); }
 			flush();
 		});
-
 	}
 
 	public function test() {
@@ -55,10 +73,10 @@ class AiTools
 		$ai = $this->ai;
 
 		$ai->model = 'gpt-5-mini';
-		//$ai->model = 'gpt-5.1';
+		$ai->model = 'gpt-4.1';
 		$ai->reasoning = 'minimal';
 		//$ai->jsonMode = true;
-		//$ai->debugResponseFile = LOGS . 'openai-responses.json';
+
 
 		/* Force a Json_Schema
 		$ai->jsonSchema = [
@@ -74,14 +92,14 @@ class AiTools
 
 		$ai->messages = [
 			['role' => 'system', 'content' => 'keine Rückfragen einfach ergebnis ausgeben.'],
-			['role' => 'user', 'content' => 'Hey wie gehts'],
-			['role' => 'user', 'content' => 'Welcher Tag war 30.05.1983'],
+			['role' => 'user', 'content' => 'Hi wie gehts'],
+			//['role' => 'user', 'content' => 'Schreib mir einen Educate Me Artikel mit 2 Sätzen'],
 		];
 
 		
 		//$this->direct();
-		$this->stream();
-		//$this->sse();
+		//$this->stream();
+		$this->sse();
 
 	}
 
@@ -125,6 +143,26 @@ class AiTools
 			if (function_exists('ob_flush')) { @ob_flush(); }
 			flush();
 		});
+
+		Session::set('conversation', $this->ai->last_conversation());
 	}
+
+
+
+
+	public function clear_logs() {
+		$files = glob(rtrim(LOGS, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '*');
+		foreach ($files as $file) {
+			if (is_file($file)) {@unlink($file);}
+		}
+	}
+
+	public function get_header_input() {
+		$rawBody = file_get_contents('php://input');
+		return json_decode($rawBody, true, 512, JSON_THROW_ON_ERROR);
+	}
+
+
+
 
 }

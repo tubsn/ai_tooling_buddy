@@ -5,11 +5,17 @@ data() {
 	return {
 		input : null,
 		output : null,
+		model: null,
 		eventSource: null,		
 		loading : false,
 		stopWatchStartTime: null,
-		responseSeconds: 0,
-		debuginfo: null,
+		responsetime: 0,
+		usage: [],
+		history: null,
+		historyExpanded: true,
+		errormessages: null,
+		sseFinalOutput: [],
+		sseProgress: [],
 	}
 },
 
@@ -17,84 +23,123 @@ components: {
 	//'section-selector': SectionSelectorComponent,
 },
 
-computed: {},
+computed: {
+	chars() {
+		if (!this.output) {return 0}
+		return this.output.length
+	},
+},
 
-watch: {},
+watch: {
+	input(content) {sessionStorage.input = content},
+	historyExpanded(value) {localStorage.historyExpanded = value;},
+},
 
 mounted() {
-	this.init()
+	if (sessionStorage.input) {this.input = sessionStorage.input}
+	this.fetchHistory()
+	this.getUserSettings()
 },
 
 methods: {
 
-	init() {
-		this.getDebugInfo()
-
-	},
-
-	async getDebugInfo() {
-		try {
-
-			this.loading = true
-			let url = '/debug'
-
-			let postData = new FormData();
-
-			// postData.append('input', this.input);
-			// options = {method: 'POST', body: postData}
-
-			const response = await fetch(url);
-			if (!response.ok) {throw new Error('Network Error')}
-
-			const data = await response.json()
-			console.log(data);
-			this.debuginfo = data
-
-		} catch (error) {
-			console.error('Fetch Error:', error)
-		}
-
-		this.loading = false
-
-	},
-
 	send() {
-		this.stream()
+		this.errormessages = null
+		this.sseFinalOutput = []
+		this.sseProgress = []
+		this.createStreamRequest()
+	},
 
+	getUserSettings() {
+		if (localStorage.historyExpanded == 'true') {this.historyExpanded = true}
+		else {this.historyExpanded = false}
+
+		if (localStorage.model) {this.model = localStorage.model}
+		if (localStorage.userSelectedModel) {this.userSelectedModel = localStorage.userSelectedModel}
+	},
+
+	async fetchHistory() {
+		let response = await fetch('/stream/session')
+		if (!response.ok) {return}
+		let json = await response.json()
+		this.history = json
+	},
+
+	filterInstructions(node) {
+		// Removes OpenAI instrucational Arrays e.g. for Vision Uploads
+		if (node[0].text) {return node[0].text}
+		else {return node}
+	},
+
+	async removeHistory() {
+		const url = '/stream/killsession';
+		const response = await fetch(url);
+		this.history = null
+	},
+
+	async createStreamRequest() {
+
+		const requestURL = '/stream'
+		let payload = {input : this.input}
+
+		const response = await fetch(requestURL, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+
+		if (!response.ok) throw new Error('Kanal-Erstellung fehlgeschlagen');
+		
+		const data = await response.json()
+		const streamURL = data.url
+
+		this.stream(streamURL)
 	},
 
 
-
-	async stream(conversionID) {
+	async stream(url) {
 
 		this.startClock()
 		this.output = ''
 		this.loading = true
 
-		let url = '/stream'
+		if (!url) {url = '/stream'}
 
-		this.eventSource = new EventSource(url);
-
+		this.eventSource = new EventSource(url, { withCredentials: true });
 		this.eventSource.addEventListener('message', (event) => {
 			let data = JSON.parse(event.data)
-			console.log(data)
-			if (data.text) {
-				this.output += data.text
+
+			if (data.type == 'progress') {
+				this.sseProgress.push(data.content)
 			}
+
+			if (data.type == 'completed') {
+				this.sseFinalOutput.push(data.content)
+				this.usage = data.content.usage
+			}
+
+			if (data.text) {this.output += data.text}
+
 		})
 
-		this.eventSource.addEventListener('stop', (event) => {
-			this.stopStream()
-		})
-
+		this.eventSource.addEventListener('done', (event) => {this.stopStream()})
+		this.eventSource.addEventListener('stop', (event) => {this.stopStream()})
 		this.eventSource.addEventListener("error", (event) => {
-			this.errormessages = event.data
+			if (event.data) {
+				this.errormessages = event.data
+				this.output += event.data
+			}
 			this.stopStream()
 		});
 
 		document.removeEventListener("keydown", this.stopStreamOnEscape);
 		document.addEventListener("keydown", this.stopStreamOnEscape);
 
+	},
+
+	autofocus() {
+		if (!this.$refs.autofocusElement) {return}
+		Vue.nextTick(() => {this.$refs.autofocusElement.focus()})
 	},
 
 	stopStreamOnEscape(event) {
@@ -106,11 +151,13 @@ methods: {
 	stopStream() {
 		this.eventSource.close()
 		this.stopClock()
+		this.autofocus()
+		this.fetchHistory()
 		this.loading = false
 	},
 
-	startClock() {this.stopWatchStartTime = Date.now(); this.responseSeconds = 0},
-	stopClock() {this.responseSeconds = this.elapsedTime()},
+	startClock() {this.stopWatchStartTime = Date.now(); this.responsetime = 0},
+	stopClock() {this.responsetime = this.elapsedTime()},
 	elapsedTime() {
 		if (!this.stopWatchStartTime) {return 0}
 		return (Date.now() - this.stopWatchStartTime) / 1000

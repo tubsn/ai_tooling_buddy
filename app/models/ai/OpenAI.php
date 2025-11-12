@@ -2,7 +2,8 @@
 
 namespace app\models\ai;
 
-use Closure;
+use \Closure;
+use flundr\utility\Session;
 
 class OpenAI
 {
@@ -12,15 +13,16 @@ class OpenAI
 	public array $messages = [];
 	public ?array $jsonSchema = null;
 
-	public ?string $debugResponseFile = null;
 	public ?string $debugEventFile = LOGS . 'response-events.json';
 
 	private ?Closure $onDelta = null;
 	private ?string $lastResponseId = null;
+	private array $lastResponse = [];
 	private array $toolCalls = [];
 	private array $pendingToolOutputs = [];
 	private array $toolRegistry = [];
 	private array $functionItemIdToCallId = [];
+	private ?ResponseEventCollector $eventCollector = null;
 
 	public function __construct(private ConnectionHandler $connection) {}
 
@@ -34,15 +36,11 @@ class OpenAI
 	}
 
 	public function add_message(string $text, string $role = 'user', $index = null): void {
-		$allowedRoles = ['system', 'user', 'assistant', 'developer'];
-		if (!in_array($role, $allowedRoles, true)) {
-			$role = 'user';
-		}
 
-		$message = [
-			'role' => $role,
-			'content' => $text,
-		];
+		$allowedRoles = ['system', 'user', 'assistant', 'developer'];
+		if (!in_array($role, $allowedRoles, true)) {$role = 'user';}
+
+		$message = ['role' => $role, 'content' => $text,];
 
 		if ($index === null || $index === 'last') {
 			$this->messages[] = $message;
@@ -64,10 +62,22 @@ class OpenAI
 		$this->messages[] = $message;
 	}
 
-	public function write_debug_log($response, $file) {
-		$output = json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-		$output .= "\n\n";
-		file_put_contents($file, $output, FILE_APPEND);
+
+	public function last_conversation() {
+		$conversation = $this->messages;
+		$lastMessage = $this->last_response();
+		if (!empty($lastMessage)) {
+			array_push($conversation, $lastMessage);
+		}
+		return $conversation;
+	}
+
+	public function last_response() {
+		$response = $this->lastResponse;
+		if (empty($response)) {return [];}
+		$out['role'] = $response['role'];
+		$out['content'] = $response['content'][0]['text'];
+		return $out;
 	}
 
 	public function complete(): string {
@@ -77,10 +87,6 @@ class OpenAI
 
 			$requestOptions = $this->build_options(false);
 			$responseData = $this->connection->request($requestOptions, null);
-
-			if ($this->debugResponseFile) {
-				$this->write_debug_log($responseData, $this->debugResponseFile);
-			}
 
 			$this->lastResponseId =
 				$responseData['id'] ??
@@ -101,34 +107,50 @@ class OpenAI
 		return $finalText;
 	}
 
+	public function log_events($eventData) {
+		file_put_contents(
+			$this->debugEventFile, json_encode($eventData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL, FILE_APPEND
+		);
+	}
+
 	public function stream(callable $onDelta): void {
 		$this->onDelta = Closure::fromCallable($onDelta);
 
-		while (true) {
-			$this->toolCalls = [];
-			$this->functionItemIdToCallId = [];
+		try {
+			
+			while (true) {
+				$responseCollector = new ResponseEventCollector(function (array $payload): void {
+					$this->emit($payload);
+				});
 
-			$requestOptions = $this->build_options(true);
-			$this->connection->request($requestOptions, function (array $eventData) {
-				if ($this->debugEventFile) {
-					file_put_contents(
-						$this->debugEventFile,
-						json_encode($eventData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL,
-						FILE_APPEND
-					);
+				$requestOptions = $this->build_options(true);
+
+				// Calling the Connection for Streaming Events
+				$this->connection->request($requestOptions, function (array $eventData) use ($responseCollector) {
+					if ($this->debugEventFile) {$this->log_events($eventData);}
+					$responseCollector->handle($eventData);
+					return true;
+				});
+
+				$this->lastResponseId = $responseCollector->last_response_id();
+				$this->lastResponse = $responseCollector->complete_response();
+				$this->toolCalls = $responseCollector->tool_calls();
+
+				if (!empty($this->toolCalls)) {
+					$this->execute_tools();
+					continue;
 				}
-				$this->handle_responses_event($eventData);
-				return true;
-			});
 
-			if (!empty($this->toolCalls)) {
-				$this->execute_tools();
-				continue;
+				$this->emit(['type' => 'done']);
+				break;
 			}
 
-			$this->emit(['type' => 'done']);
-			break;
+		} 
+
+		catch (\RuntimeException $e) {
+			$this->emit(['type' => 'error', 'text' => $e->getMessage()]);
 		}
+
 	}
 
 	private function build_options(bool $useStream): array {
@@ -136,10 +158,7 @@ class OpenAI
 
 		$options['model'] = $this->model;
 		$options['stream'] = $useStream;
-
-		if ($this->reasoning) {
-			$options['reasoning']['effort'] = $this->reasoning;
-		}
+		if ($this->reasoning) {$options['reasoning']['effort'] = $this->reasoning;}
 
 		// this adds responses if tool calls are made 
 		if ($isFollowUp) {
@@ -226,8 +245,7 @@ class OpenAI
 			if (!$registryEntry || !isset($registryEntry['callable'])) {
 				$errorText = json_encode(
 					[
-						'error' => $registryEntry
-							? 'No callable for tool: ' . $toolName
+						'error' => $registryEntry ? 'No callable for tool: ' . $toolName
 							: 'Unknown tool: ' . $toolName,
 					],
 					JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
@@ -240,12 +258,8 @@ class OpenAI
 			}
 
 			$result = $this->dispatch_tool($toolName, $argumentsArray);
-			$outputText = is_string($result)
-				? $result
-				: json_encode(
-					$result,
-					JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-				);
+			$outputText = is_string($result) ? 
+			$result : json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 			$this->pendingToolOutputs[] = [
 				'tool_call_id' => (string) $callId,
@@ -302,15 +316,9 @@ class OpenAI
 			$name = $src['name'] ?? ($src['function']['name'] ?? null);
 			$arguments = $src['arguments'] ?? ($src['function']['arguments'] ?? '');
 
-			if (!$callId || !$name) {
-				return;
-			}
-
+			if (!$callId || !$name) {return;}
 			if (!is_string($arguments)) {
-				$arguments = json_encode(
-					$arguments ?? [],
-					JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-				);
+				$arguments = json_encode($arguments ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 			}
 
 			$calls[$callId] = [
@@ -322,6 +330,7 @@ class OpenAI
 
 		if (isset($response['output']) && is_array($response['output'])) {
 			foreach ($response['output'] as $outputItem) {
+
 				$type = $outputItem['type'] ?? '';
 				if ($type === 'function_call' || $type === 'tool_call') {
 					$pushCall($outputItem);
@@ -356,125 +365,6 @@ class OpenAI
 		}
 
 		return $calls;
-	}
-
-	private function handle_responses_event(array $event): void {
-		$eventType = (string) ($event['type'] ?? '');
-
-		switch ($eventType) {
-			case 'response.created':
-			case 'response.completed':
-				if (isset($event['response']['id'])) {
-					$this->lastResponseId = (string) $event['response']['id'];
-				}
-				break;
-
-			case 'response.output_text.delta':
-				$deltaText = (string) ($event['delta'] ?? '');
-				if ($deltaText !== '') {
-					$this->emit(['type' => 'delta', 'text' => $deltaText]);
-				}
-				break;
-
-			case 'response.output_item.added': {
-				$item = $event['item'] ?? [];
-				if (($item['type'] ?? '') === 'function_call') {
-					$itemId = (string) ($item['id'] ?? '');
-					$callId = (string) ($item['call_id'] ?? '');
-					$toolName = (string) ($item['name'] ?? '');
-					if ($itemId !== '' && $callId !== '') {
-						$this->functionItemIdToCallId[$itemId] = $callId;
-						if (!isset($this->toolCalls[$callId])) {
-							$this->toolCalls[$callId] = [
-								'call_id' => $callId,
-								'name' => $toolName,
-								'arguments' => '',
-							];
-						} elseif ($toolName !== '') {
-							$this->toolCalls[$callId]['name'] = $toolName;
-						}
-					}
-				}
-				break;
-			}
-
-			case 'response.function_call_arguments.delta': {
-				$itemId = (string) ($event['item_id'] ?? '');
-				$deltaChunk = (string) ($event['delta'] ?? '');
-				if ($itemId !== '' && $deltaChunk !== '') {
-					$callId = $this->functionItemIdToCallId[$itemId] ?? '';
-					if ($callId !== '') {
-						if (!isset($this->toolCalls[$callId])) {
-							$this->toolCalls[$callId] = [
-								'call_id' => $callId,
-								'name' => '',
-								'arguments' => '',
-							];
-						}
-						$this->toolCalls[$callId]['arguments'] .= $deltaChunk;
-					}
-				}
-				break;
-			}
-
-			case 'response.function_call_arguments.done': {
-				$itemId = (string) ($event['item_id'] ?? '');
-				$finalArgs = (string) ($event['arguments'] ?? '');
-				if ($itemId !== '') {
-					$callId = $this->functionItemIdToCallId[$itemId] ?? '';
-					if ($callId !== '') {
-						if (!isset($this->toolCalls[$callId])) {
-							$this->toolCalls[$callId] = [
-								'call_id' => $callId,
-								'name' => '',
-								'arguments' => '',
-							];
-						}
-						if ($finalArgs !== '') {
-							$this->toolCalls[$callId]['arguments'] = $finalArgs;
-						}
-					}
-				}
-				break;
-			}
-
-			case 'response.output_item.done': {
-				$item = $event['item'] ?? [];
-				if (($item['type'] ?? '') === 'function_call') {
-					$itemId = (string) ($item['id'] ?? '');
-					$callId = (string) ($item['call_id'] ?? '');
-					$toolName = (string) ($item['name'] ?? '');
-					$argsText = isset($item['arguments'])
-						? (is_string($item['arguments']) ? $item['arguments'] :
-							json_encode($item['arguments'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))
-						: '';
-					if ($itemId !== '' && $callId !== '') {
-						$this->functionItemIdToCallId[$itemId] = $callId;
-						$this->toolCalls[$callId] = [
-							'call_id' => $callId,
-							'name' => $toolName,
-							'arguments' => $argsText !== '' ? $argsText : ($this->toolCalls[$callId]['arguments'] ?? ''),
-						];
-					}
-				}
-				break;
-			}
-
-			case 'response.error':
-				$errorMessage = $event['error']['message'] ?? 'unknown';
-				$this->emit(['type' => 'error', 'message' => $errorMessage]);
-				break;
-
-			default:
-				if ($this->debugEventFile) {
-					file_put_contents(
-						$this->debugEventFile,
-						json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL,
-						FILE_APPEND
-					);
-				}
-				break;
-		}
 	}
 
 	private function emit(array $payload): void {

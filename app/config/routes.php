@@ -9,6 +9,10 @@ $routes->post('/article/{id:\d+}', 'Controller@Action'); With ID-Parameter (Nume
 $routes->get('/', 'Home@index');
 $routes->get('/chat', 'Home@chat');
 $routes->get('/stream', 'Home@stream');
+$routes->post('/stream', 'Streaming@post_request');
+$routes->get('/stream/sse', 'Streaming@sse');
+$routes->get('/stream/session', 'Streaming@get_conversation');
+$routes->get('/stream/killsession', 'Streaming@delete_conversation');
 $routes->get('/debug', 'Home@debug');
 
 
