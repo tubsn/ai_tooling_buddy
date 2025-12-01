@@ -71,10 +71,16 @@ methods: {
 		else {return node}
 	},
 
+	clearLogs() {
+		this.sseFinalOutput = ''
+		this.sseProgress = ''
+	},
+
 	async removeHistory() {
 		const url = '/stream/killsession';
 		const response = await fetch(url);
 		this.history = null
+		this.clearLogs()
 	},
 
 	async createStreamRequest() {

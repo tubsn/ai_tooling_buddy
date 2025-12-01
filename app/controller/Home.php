@@ -13,10 +13,8 @@ class Home extends Controller {
 		if (!Auth::logged_in() && !Auth::valid_ip()) {Auth::loginpage();}
 	}
 
-	public function index() {
-
+	public function test() {
 		$this->AiTools->test();
-		//$this->view->render('example');
 	}
 
 	public function chat() {

@@ -12,10 +12,8 @@ $routes->post('/stream', 'Streaming@post_request');
 $routes->get('/stream/sse', 'Streaming@sse');
 $routes->get('/stream/session', 'Streaming@get_conversation');
 $routes->get('/stream/killsession', 'Streaming@delete_conversation');
-$routes->get('/debug', 'Home@debug');
 
-
-
+$routes->get('/test', 'Home@test');
 
 // You can delete these if you don´t need Users in your App
 

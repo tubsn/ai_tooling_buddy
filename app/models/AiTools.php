@@ -17,8 +17,10 @@ class AiTools
 	public function __construct() {
 		$this->connection = new ConnectionHandler(CHATGPTKEY, 'https://api.openai.com', '/v1/responses');
 		$this->ai = new OpenAI($this->connection);
+		
+		// Example on how to register Tools
 		$this->tools = new MCPTools();
-		//$this->tools->registerAll($this->ai);
+		$this->tools->registerAll($this->ai);
 
 		$this->clear_logs();
 	}
@@ -40,11 +42,21 @@ class AiTools
 			$ai->messages = $conversation;	
 		}
 
-		$this->sse();
+		$this->init_streaming_header();
+
+		$this->ai->stream(function (array $event) {
+			echo 'data: ' . json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
+			echo str_pad('',4096)."\n";
+			flush();
+		});
+
+		Session::set('conversation', $this->ai->last_conversation());
+
 
 	}
 
-	public function sse() {
+
+	public function init_streaming_header() {
 
 		// These Settings help disabling buffers in Streaming environments
 		if (function_exists('apache_setenv')) {
@@ -60,53 +72,16 @@ class AiTools
 		header('Cache-Control: no-cache');
 		header('X-Accel-Buffering: no');
 
-		$this->ai->stream(function (array $event) {
-			echo 'data: ' . json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
-			echo str_pad('',4096)."\n";
-			flush();
-		});
-
-		Session::set('conversation', $this->ai->last_conversation());
 	}
 
-
-
-
-
-
-
-
-
-
-	public function stream_test() {
-
-		//$data = $this->get_header_input();
-
-		$ai = $this->ai;
-		$ai->model = 'gpt-5-mini';
-		//$ai->reasoning = 'minimal';
-		$ai->messages = [
-			['role' => 'user', 'content' => 'Erzähl mir in 2 Sätzen wie die Sonne entstand.'],
-		];
-
-		header('Content-Type: text/event-stream');
-		header('Cache-Control: no-cache');
-		$this->ai->stream(function (array $event) {
-			echo 'data: ' . json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
-			if (function_exists('ob_flush')) { @ob_flush(); }
-			flush();
-		});
-	}
 
 	public function test() {
 
 		$ai = $this->ai;
 
-		$ai->model = 'gpt-5-mini';
-		$ai->model = 'gpt-4.1';
-		$ai->reasoning = 'minimal';
+		$ai->model = 'gpt-5.1';
+		$ai->reasoning = 'high';
 		//$ai->jsonMode = true;
-
 
 		/* Force a Json_Schema
 		$ai->jsonSchema = [
@@ -119,17 +94,23 @@ class AiTools
 		];
 		*/
 
-
 		$ai->messages = [
 			['role' => 'system', 'content' => 'keine Rückfragen einfach ergebnis ausgeben.'],
-			['role' => 'user', 'content' => 'Hi wie gehts'],
-			//['role' => 'user', 'content' => 'Schreib mir einen Educate Me Artikel mit 2 Sätzen'],
+			['role' => 'user', 'content' => 'Wie spät ist es denn?'],
 		];
 
-		
 		//$this->direct();
-		//$this->stream();
-		$this->sse();
+		//die;
+
+		$this->stream_dump();
+		die;
+
+		$this->init_streaming_header();
+		$this->ai->stream(function (array $event) {
+			echo 'data: ' . json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
+			echo str_pad('',4096)."\n";
+			flush();
+		});
 
 	}
 
@@ -138,17 +119,6 @@ class AiTools
 		$result = $this->ai->complete();
 		dd($result);
 	}
-
-	public function stream() {
-		echo '<pre>';
-		$this->ai->stream(function (array $event){
-			echo $event['text'] ?? '';
-			if (function_exists('ob_flush')) { @ob_flush(); }
-			flush();
-		});
-		echo '</pre>';
-	}
-
 
 	public function stream_dump() {
 		$receivedEvents = [];

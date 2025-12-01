@@ -52,7 +52,7 @@
 
 
 <div class="col-2">
-	<label>Progress Events:
+	<label>MCP/Tooling Events:
 	<textarea v-if="sseProgress.length>0" tabindex="0">{{ sseProgress }}</textarea>
 	<textarea v-else tabindex="0"></textarea>
 	</label>

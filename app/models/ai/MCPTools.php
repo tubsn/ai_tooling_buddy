@@ -44,9 +44,8 @@ class MCPTools
 			],		
 		);
 		*/
-	
 
-		/*
+		/*						
 		$ai->register_tool(
 			'current_datetime',
 			[
@@ -60,7 +59,7 @@ class MCPTools
 			function (array $args) {return $this->current_datetime();}
 		);
 		*/
-		
+				
 		/*
 		$ai->register_tool(
 			'getweekday',
