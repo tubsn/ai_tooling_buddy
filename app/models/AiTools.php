@@ -1,7 +1,7 @@
 <?php
 
 namespace app\models;
-use \app\models\ai\OpenAi;
+use \app\models\ai\OpenAI;
 use \app\models\ai\MCPTools;
 use \app\models\ai\ConnectionHandler;
 use flundr\utility\Session;
@@ -18,7 +18,7 @@ class AiTools
 		$this->connection = new ConnectionHandler(CHATGPTKEY, 'https://api.openai.com', '/v1/responses');
 		$this->ai = new OpenAI($this->connection);
 		$this->tools = new MCPTools();
-		$this->tools->registerAll($this->ai);
+		//$this->tools->registerAll($this->ai);
 
 		$this->clear_logs();
 	}
@@ -26,8 +26,8 @@ class AiTools
 	public function chat($input) {
 
 		$ai = $this->ai;
-		$ai->model = 'gpt-4.1';
-		//$ai->reasoning = 'minimal';
+		$ai->model = 'gpt-5.1';
+		$ai->reasoning = 'none';
 
 		$ai->messages = [
 			['role' => 'system', 'content' => 'Bitte antworte auf deutsch.'],
@@ -40,10 +40,40 @@ class AiTools
 			$ai->messages = $conversation;	
 		}
 
-
 		$this->sse();
 
 	}
+
+	public function sse() {
+
+		// These Settings help disabling buffers in Streaming environments
+		if (function_exists('apache_setenv')) {
+			@apache_setenv('no-gzip', '1');
+		}
+
+		@ini_set('zlib.output_compression', '0');
+		@ini_set('output_buffering', '0');
+		@ini_set('implicit_flush', '1');
+
+		while (ob_get_level() > 0) {ob_end_clean();}
+		header('Content-Type: text/event-stream');
+		header('Cache-Control: no-cache');
+		header('X-Accel-Buffering: no');
+
+		$this->ai->stream(function (array $event) {
+			echo 'data: ' . json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
+			echo str_pad('',4096)."\n";
+			flush();
+		});
+
+		Session::set('conversation', $this->ai->last_conversation());
+	}
+
+
+
+
+
+
 
 
 
@@ -112,7 +142,6 @@ class AiTools
 	public function stream() {
 		echo '<pre>';
 		$this->ai->stream(function (array $event){
-			$receivedEvents[] = $event;
 			echo $event['text'] ?? '';
 			if (function_exists('ob_flush')) { @ob_flush(); }
 			flush();
@@ -133,22 +162,6 @@ class AiTools
 		echo '</pre>';
 		dump($receivedEvents);
 	}
-
-	public function sse() {
-		header('Content-Type: text/event-stream');
-		header('Cache-Control: no-cache');
-
-		$this->ai->stream(function (array $event) {
-			echo 'data: ' . json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
-			if (function_exists('ob_flush')) { @ob_flush(); }
-			flush();
-		});
-
-		Session::set('conversation', $this->ai->last_conversation());
-	}
-
-
-
 
 	public function clear_logs() {
 		$files = glob(rtrim(LOGS, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '*');

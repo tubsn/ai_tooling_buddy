@@ -1,12 +1,14 @@
 <?php
 
 namespace app\controller;
+use flundr\auth\Auth;
 use flundr\mvc\Controller;
 use flundr\utility\Session;
 
 class Streaming extends Controller {
 
 	public function __construct() {
+		if (!Auth::logged_in() && !Auth::valid_ip()) {Auth::loginpage();}
 		$this->view('DefaultLayout');
 		$this->models('AiTools');
 		$this->init_sse_error_handling();

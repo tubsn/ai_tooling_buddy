@@ -15,7 +15,38 @@ class MCPTools
 		$ai->register_tool('SlackMCP', $toolSchema);
 		*/
 
+		/*
+		$ai->register_tool(
+			'Piano',
+			[
+				'type' => 'mcp',
+				'server_label' => 'piano-analytics-mcp-server',
+				'server_url' => 'https://analytics-api-eu.piano.io/mcp/',
+				'headers' => [
+				  'x-api-key' => PIANOKEY,
+				],
+				'require_approval' => 'never',	
+			],		
+		);
+		*/
 
+		/*
+		$ai->register_tool(
+			'ChristianMCP',
+			[
+				'type' => 'mcp',
+				'server_label' => 'ChristianMCP',
+				'server_url' => 'https://compulsory-brown-dormouse.fastmcp.app/mcp',
+				'require_approval' => 'never',
+				//'headers' => [
+				//	'Authorization' => 'Bearer ' . MCP_TESTSERVER_AUTH,
+				//],				
+			],		
+		);
+		*/
+	
+
+		/*
 		$ai->register_tool(
 			'current_datetime',
 			[
@@ -28,9 +59,8 @@ class MCPTools
 			],
 			function (array $args) {return $this->current_datetime();}
 		);
+		*/
 		
-		
-
 		/*
 		$ai->register_tool(
 			'getweekday',
@@ -51,8 +81,8 @@ class MCPTools
 			function (array $args) {return $this->get_weekday($args);}
 		);
 		*/
-
-		/*
+		
+		/*	
 		$ai->register_tool(
 			'count_chars',
 			[
@@ -72,9 +102,10 @@ class MCPTools
 			function (array $args) {return $this->count_chars($args);}
 		);
 		*/
+		
 
 		// OpenAI Built-Ins (keine Callables nötig)
-		$ai->register_tool('web_search', ['type' => 'web_search']);
+		//$ai->register_tool('web_search', ['type' => 'web_search']);
 		//$ai->register_tool('file_search', ['type' => 'file_search']);
 	}
 
@@ -95,100 +126,5 @@ class MCPTools
 		$string = $args['text'] ?? '';
 		return strlen($string);
 	}
-
-
-
-
-
-
-	public function fetchPipedreamAppSlug(string $clientId, string $clientSecret, string $query = 'notion'): ?string
-	{
-		$tokenUrl = 'https://api.pipedream.com/v1/oauth/token';
-		$appsUrl  = 'https://api.pipedream.com/v1/apps';
-
-		$tokenPayload = $this->curlPostJson($tokenUrl, [
-			'grant_type' => 'client_credentials',
-			'client_id' => $clientId,
-			'client_secret' => $clientSecret,
-		]);
-
-		if ($tokenPayload === null || empty($tokenPayload['access_token'])) {
-			return null;
-		}
-		$accessToken = $tokenPayload['access_token'];
-
-		$appsPayload = $this->curlGetJson($appsUrl, [
-			'Authorization: Bearer ' . $accessToken,
-			'Accept: application/json',
-		], ['q' => $query]);
-
-		if (!is_array($appsPayload) || empty($appsPayload['data'][0]['name_slug'])) {
-			return null;
-		}
-
-		return $appsPayload['data'][0]['name_slug'];
-	}
-
-	private function curlPostJson(string $url, array $body, array $headers = []): ?array
-	{
-		$requestHeaders = array_merge([
-			'Content-Type: application/json',
-			'Accept: application/json',
-		], $headers);
-
-		$curlHandle = curl_init($url);
-		curl_setopt_array($curlHandle, [
-			CURLOPT_POST => true,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_HTTPHEADER => $requestHeaders,
-			CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-			CURLOPT_TIMEOUT => 15,
-		]);
-
-		$responseBody = curl_exec($curlHandle);
-		$httpCode = curl_getinfo($curlHandle, CURLINFO_HTTP_CODE);
-		if ($responseBody === false || $httpCode < 200 || $httpCode >= 300) {
-			curl_close($curlHandle);
-			return null;
-		}
-		curl_close($curlHandle);
-
-		$decoded = json_decode($responseBody, true);
-		return is_array($decoded) ? $decoded : null;
-	}
-
-	private function curlGetJson(string $url, array $headers = [], array $query = []): ?array
-	{
-		if (!empty($query)) {
-			$url .= (strpos($url, '?') === false ? '?' : '&') . http_build_query($query);
-		}
-
-		$requestHeaders = array_merge([
-			'Accept: application/json',
-		], $headers);
-
-		$curlHandle = curl_init($url);
-		curl_setopt_array($curlHandle, [
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_HTTPHEADER => $requestHeaders,
-			CURLOPT_TIMEOUT => 15,
-		]);
-
-		$responseBody = curl_exec($curlHandle);
-		$httpCode = curl_getinfo($curlHandle, CURLINFO_HTTP_CODE);
-		if ($responseBody === false || $httpCode < 200 || $httpCode >= 300) {
-			curl_close($curlHandle);
-			return null;
-		}
-		curl_close($curlHandle);
-
-		$decoded = json_decode($responseBody, true);
-		return is_array($decoded) ? $decoded : null;
-	}
-
-
-
-
-
 
 }

@@ -1,6 +1,7 @@
 <?php
 
 namespace app\controller;
+use flundr\auth\Auth;
 use flundr\mvc\Controller;
 use flundr\utility\Session;
 
@@ -9,6 +10,7 @@ class Home extends Controller {
 	public function __construct() {
 		$this->view('DefaultLayout');
 		$this->models('Generator,AiTools');
+		if (!Auth::logged_in() && !Auth::valid_ip()) {Auth::loginpage();}
 	}
 
 	public function index() {

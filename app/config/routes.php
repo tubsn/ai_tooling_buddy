@@ -6,19 +6,13 @@ $routes->get('/urlpath[/{optionalparameter}]', 'Controller@Action');
 $routes->post('/article/{id:\d+}', 'Controller@Action'); With ID-Parameter (Numeric)
 */
 
-$routes->get('/', 'Home@index');
-$routes->get('/chat', 'Home@chat');
+$routes->get('/', 'Home@chat');
 $routes->get('/stream', 'Home@stream');
 $routes->post('/stream', 'Streaming@post_request');
 $routes->get('/stream/sse', 'Streaming@sse');
 $routes->get('/stream/session', 'Streaming@get_conversation');
 $routes->get('/stream/killsession', 'Streaming@delete_conversation');
 $routes->get('/debug', 'Home@debug');
-
-
-
-
-
 
 
 
