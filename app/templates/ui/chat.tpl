@@ -10,7 +10,8 @@
 			<textarea autofocus ref="autofocusElement" tabindex="1" v-model="input" class="input"></textarea>
 		</section>
 
-		<section>Output:
+		<section class="output">Output:
+			<span class="output-info" v-if="reasoning">(nutze Reasoning)</span>
 			<textarea v-model="output" tabindex="0" class="output"></textarea>
 		</section>
 

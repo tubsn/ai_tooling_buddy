@@ -28,18 +28,10 @@ final class ResponseEventCollector
 		return $this->completeResponses[0] ?? [];
 	}
 
-	public function events_to_ignore_in_debug():array {
-
-		$eventNames = ['response.output_text.done', 'response.content_part.done', 'response.in_progress', 'response.content_part.added',
-
-		];
-
-		return $eventNames;
-	}
-
 	public function handle(array $event): void {
 		$eventType = (string) ($event['type'] ?? '');
 
+		// Use this for debugging
 		//($this->emit)(['type' => 'debug', 'content' => $event]);
 		//return;
 
@@ -83,13 +75,14 @@ final class ResponseEventCollector
 			case 'response.output_text.delta':
 				$deltaText = (string) ($event['delta'] ?? '');
 				if ($deltaText !== '') {
-					($this->emit)(['type' => 'delta', 'text' => $deltaText]);
+					($this->emit)(['type' => 'delta', 'content' => $deltaText]);
 				}
 				break;
 
 			case 'response.output_item.added': {
 				$item = $event['item'] ?? [];
-				if (($item['type'] ?? '') === 'function_call') {
+				$type = $item['type'] ?? '';
+				if ($type === 'function_call') {
 					$itemId = (string) ($item['id'] ?? '');
 					$callId = (string) ($item['call_id'] ?? '');
 					$toolName = (string) ($item['name'] ?? '');
@@ -105,6 +98,10 @@ final class ResponseEventCollector
 							$this->toolCalls[$callId]['name'] = $toolName;
 						}
 					}
+				}
+
+				if ($type === 'reasoning') {
+					($this->emit)(['type' => 'reasoning', 'content' => 'start']);
 				}
 				break;
 			}
@@ -151,9 +148,10 @@ final class ResponseEventCollector
 
 			case 'response.output_item.done': {
 				$item = $event['item'] ?? [];
+				$type = $item['type'] ?? '';
 
 				// This calls the requested Server Function
-				if (($item['type'] ?? '') === 'function_call') {
+				if ($type === 'function_call') {
 					$itemId = (string) ($item['id'] ?? '');
 					$callId = (string) ($item['call_id'] ?? '');
 					$toolName = (string) ($item['name'] ?? '');
@@ -172,8 +170,12 @@ final class ResponseEventCollector
 				}
 
 				// Output a progress event for tool calls
-				if (($item['type'] ?? '') === 'mcp_call' || ($item['type'] ?? '') === 'function_call') {
+				if ($type === 'mcp_call' || $type === 'function_call') {
 					($this->emit)(['type' => 'progress', 'content' => $event['item'] ?? $event]);
+				}
+
+				if ($type === 'reasoning') {
+					($this->emit)(['type' => 'reasoning', 'content' => 'done']);
 				}
 
 				break;
@@ -190,9 +192,6 @@ final class ResponseEventCollector
 				break;
 
 			default:
-				// Used for debug
-				//if (in_array($event['type'], $this->events_to_ignore_in_debug())) {break;}
-				//($this->emit)(['type' => 'debug', 'content' => $event]);
 				break;
 		}
 	}

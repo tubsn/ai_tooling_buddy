@@ -8,6 +8,7 @@ data() {
 		model: null,
 		eventSource: null,		
 		loading : false,
+		reasoning : false,
 		stopWatchStartTime: null,
 		responsetime: 0,
 		usage: [],
@@ -77,10 +78,11 @@ methods: {
 	},
 
 	async removeHistory() {
-		const url = '/stream/killsession';
-		const response = await fetch(url);
+		const url = '/stream/killsession'
+		const response = await fetch(url)
 		this.history = null
 		this.clearLogs()
+		this.output = ''
 	},
 
 	async createStreamRequest() {
@@ -112,22 +114,7 @@ methods: {
 		if (!url) {url = '/stream'}
 
 		this.eventSource = new EventSource(url, { withCredentials: true });
-		this.eventSource.addEventListener('message', (event) => {
-			let data = JSON.parse(event.data)
-
-			if (data.type == 'progress') {
-				this.sseProgress.push(data.content)
-			}
-
-			if (data.type == 'completed') {
-				this.sseFinalOutput.push(data.content)
-				this.usage = data.content.usage
-			}
-
-			if (data.text) {this.output += data.text}
-
-		})
-
+		this.eventSource.addEventListener('message', (event) => {this.handleStream(JSON.parse(event.data))})
 		this.eventSource.addEventListener('done', (event) => {this.stopStream()})
 		this.eventSource.addEventListener('stop', (event) => {this.stopStream()})
 		this.eventSource.addEventListener("error", (event) => {
@@ -141,6 +128,32 @@ methods: {
 		document.removeEventListener("keydown", this.stopStreamOnEscape);
 		document.addEventListener("keydown", this.stopStreamOnEscape);
 
+	},
+
+	handleStream(chunk) {
+		switch (chunk.type) {
+			case 'delta': {
+				this.output += chunk.content
+				break
+			}
+
+			case 'progress': {
+				this.sseProgress.push(chunk.content)
+				break
+			}
+
+			case 'reasoning': {
+				if (chunk.content == 'start') {this.reasoning = true}
+				if (chunk.content == 'done') {this.reasoning = false}
+				break
+			}
+
+			case 'completed': {
+				this.sseFinalOutput.push(chunk.content)
+				this.usage = chunk.content.usage
+				break
+			}
+		}
 	},
 
 	autofocus() {

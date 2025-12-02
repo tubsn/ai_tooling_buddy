@@ -79,8 +79,8 @@ class AiTools
 
 		$ai = $this->ai;
 
-		$ai->model = 'gpt-5.1';
-		$ai->reasoning = 'high';
+		$ai->model = 'gpt-5';
+		$ai->reasoning = 'medium';
 		//$ai->jsonMode = true;
 
 		/* Force a Json_Schema
@@ -95,8 +95,9 @@ class AiTools
 		*/
 
 		$ai->messages = [
-			['role' => 'system', 'content' => 'keine Rückfragen einfach ergebnis ausgeben.'],
-			['role' => 'user', 'content' => 'Wie spät ist es denn?'],
+			//['role' => 'system', 'content' => 'keine Rückfragen einfach ergebnis ausgeben.'],
+			['role' => 'system', 'content' => 'Du sollst dein Vorgehen Schritt für Schritt durchdenken, Zwischenschritte explizit ausarbeiten und erst danach eine Antwort formulieren.'],
+			['role' => 'user', 'content' => 'warum kann man nicht durch 0 dividieren?'],
 		];
 
 		//$this->direct();
