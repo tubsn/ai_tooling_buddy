@@ -14,6 +14,7 @@ $routes->get('/stream/session', 'Streaming@get_conversation');
 $routes->get('/stream/killsession', 'Streaming@delete_conversation');
 
 $routes->get('/test', 'Home@test');
+$routes->get('/drive', 'Home@drive');
 
 // You can delete these if you don´t need Users in your App
 

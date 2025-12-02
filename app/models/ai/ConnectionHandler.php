@@ -87,7 +87,7 @@ class ConnectionHandler
 		if ($onChunk) {
 			
 			$options[CURLOPT_RETURNTRANSFER] = false;
-			$options[CURLOPT_CONNECTTIMEOUT] = 10;
+			$options[CURLOPT_CONNECTTIMEOUT] = 20;
 			$options[CURLOPT_TIMEOUT] = 0;
 			$options[CURLOPT_WRITEFUNCTION] = function ($curlHandleInner, $incomingData) use ($onChunk) {
 
@@ -128,7 +128,7 @@ class ConnectionHandler
 
 		} else {
 			$options[CURLOPT_RETURNTRANSFER] = true;
-			$options[CURLOPT_CONNECTTIMEOUT] = 10;
+			$options[CURLOPT_CONNECTTIMEOUT] = 20;
 			$options[CURLOPT_TIMEOUT] = 60;
 		}
 

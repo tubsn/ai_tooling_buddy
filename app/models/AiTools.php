@@ -79,8 +79,8 @@ class AiTools
 
 		$ai = $this->ai;
 
-		$ai->model = 'gpt-5';
-		$ai->reasoning = 'medium';
+		$ai->model = 'gpt-5.1';
+		$ai->reasoning = 'none';
 		//$ai->jsonMode = true;
 
 		/* Force a Json_Schema
@@ -95,9 +95,8 @@ class AiTools
 		*/
 
 		$ai->messages = [
-			//['role' => 'system', 'content' => 'keine Rückfragen einfach ergebnis ausgeben.'],
-			['role' => 'system', 'content' => 'Du sollst dein Vorgehen Schritt für Schritt durchdenken, Zwischenschritte explizit ausarbeiten und erst danach eine Antwort formulieren.'],
-			['role' => 'user', 'content' => 'warum kann man nicht durch 0 dividieren?'],
+			['role' => 'system', 'content' => 'Bitte antworte auf deutsch.'],
+			['role' => 'user', 'content' => 'welcher tag war der 15.04.2024'],
 		];
 
 		//$this->direct();

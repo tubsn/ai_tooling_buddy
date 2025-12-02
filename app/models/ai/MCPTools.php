@@ -2,6 +2,7 @@
 
 namespace app\models\ai;
 use \app\models\mcp\PipedreamMCPConnector;
+use \app\models\mcp\DriveMixer;
 
 class MCPTools
 {
@@ -15,6 +16,40 @@ class MCPTools
 		$ai->register_tool('SlackMCP', $toolSchema);
 		*/
 
+		$mixer = new \app\models\mcp\DriveMixer;
+		
+		/*
+		$from = '2025-11-27';
+		$to = '2025-11-28';
+		$result = $mixer->analytics($from, $to);
+		dd($result);
+		*/
+	
+		
+		$ai->register_tool(
+			'DriveMixer',
+			[
+				'name' => 'DriveMixer',
+				'description' => 'Grants Access to a list of articles from BNN.de sorted by performance. The list containing Stats like views, engagement_rate and the articles content as a Json Array. Important if you are asked for a specific day use from = -1day, to = the day',
+				'parameters' => [
+					'type' => 'object',
+					'properties' => [
+						'from' => [
+							'type' => 'string',
+							'description' => 'Daterange starting from in YYYY-MM-DD -1 day',
+						],
+						'to' => [
+							'type' => 'string',
+							'description' => 'Daterange to in YYYY-MM-DD',
+						],
+					],
+					'required' => ['from', 'to'],
+				],
+			],
+			function (array $args) use ($mixer) {return $mixer->analytics($args);}
+		);
+		
+		
 		/*
 		$ai->register_tool(
 			'Piano',
@@ -44,6 +79,7 @@ class MCPTools
 			],		
 		);
 		*/
+		
 
 		/*						
 		$ai->register_tool(
@@ -80,6 +116,7 @@ class MCPTools
 			function (array $args) {return $this->get_weekday($args);}
 		);
 		*/
+		
 		
 		/*	
 		$ai->register_tool(

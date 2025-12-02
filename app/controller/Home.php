@@ -26,4 +26,17 @@ class Home extends Controller {
 		$this->AiTools->stream_test();
 	}
 
+	public function drive() {
+
+		$from = '2025-11-27';
+		$to = '2025-11-28';
+
+		$mixer = new \app\models\mcp\DriveMixer;
+		$result = $mixer->analytics($from, $to);
+
+		dd($result);
+
+	}
+
+
 }
