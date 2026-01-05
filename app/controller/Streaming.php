@@ -17,6 +17,7 @@ class Streaming extends Controller {
 		$this->view->render('chat/interface'); // loads html template 
 	}
 
+	// This is the main Streaming entrypoint
 	// You could implement the AiTools Methods here directly
 	// I used a seperate model to keep things cleaner
 	public function chat() {
