@@ -2,6 +2,7 @@
 
 namespace app\models\mcp;
 use flundr\utility\Log;
+use flundr\utility\Session;
 
 class DriveMixer
 {
@@ -21,7 +22,7 @@ class DriveMixer
 		$to = date('Y-m-d', strtotime($to));
 
 		$data = [
-			'limit' => 4,
+			'limit' => 5,
 			'start_date' => $from,
 			'end_date' => $to,
 			'article_locality' => 'All',
@@ -60,36 +61,33 @@ class DriveMixer
 
 
 
-	public function search($query, $from = '-90 days', $to = 'today', $parameters = null) {
+	public function search($query, $from = '2000-01-01', $to = 'today', $limit = 10, $filters = null, $teasersOnly = false) {
 
 		$minimalScore = 0;
 
 		$from = date('Y-m-d', strtotime($from)) . ' 00:00:00';
 		$to = date('Y-m-d', strtotime($to)) . ' 23:59:59';
+		$limit = intval($limit);
 
-		$filters = $this->format_filters($parameters);
+		$filters = $this->format_filters($filters);
 
 		$query = $this->sanitize($query);
 
-		$data = [
+		$fields = ['article_title', 'article_teaser'];
+		if (!$teasersOnly) {array_push($fields, 'article_text');}
+
+		$settings = [
 			'query' => $query,
 			'algorithm' => 'hybrid',
 			'start_date' => $from,
 			'end_date' => $to,
-			'fields' => ['article_title', 'article_text'],
-			
+			'limit' => $limit,			
+			'fields' => $fields,
 		];
 
-		/*
-		$filters = [
-			'filters' => [
-				'tags' => '"section": "Karlsruhe"', '"section": "Karlsbad"'
-			]
-		];*/
+		$settings = array_merge($settings,$filters);
 
-		$data = array_merge($data,$filters);
-
-		$response = $this->curl($this->apiURL . '/search', $data);
+		$response = $this->curl($this->apiURL . '/search', $settings);
 
 		$json = json_decode($response, true);
 
@@ -120,6 +118,14 @@ class DriveMixer
 			return $item;
 		}, $data);
 
+
+		// Api limit might not work all the time
+		$data = array_slice($data, 0, $limit);
+
+		Session::set('tooldata', $data);
+		//Log::write(json_encode($settings));
+		//Log::write(json_encode($data));
+
 		return $data;
 	}
 
@@ -129,7 +135,9 @@ class DriveMixer
 		$filters = [];
 
 		if (isset($parameters['tags'])) {
-			$filters['tags'] = $parameters['tags'];
+			$tags = $parameters['tags'];
+			$tags = explode_and_trim(',', $tags);
+			$filters['tags'] = $tags;
 		}
 
 		if (isset($parameters['ressorts']) && !is_array($parameters['ressorts'])) {
@@ -164,9 +172,12 @@ class DriveMixer
 
 	private function curl($url, $data) {
 
+		$apikey = $this->apiKey;
+		if (auth_groups('Aachen')) {$apikey = DRIVE_API_KEY2;}
+
 		$headers = [
 			'accept: application/json',
-			'apikey: ' . $this->apiKey,
+			'apikey: ' . $apikey,
 			'Content-Type: application/json'
 		];
 

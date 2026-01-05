@@ -1,7 +1,6 @@
 <?php
 
 namespace app\controller;
-use flundr\auth\Auth;
 use flundr\mvc\Controller;
 use flundr\utility\Session;
 
@@ -9,38 +8,26 @@ class Home extends Controller {
 
 	public function __construct() {
 		$this->view('DefaultLayout');
-		$this->models('Generator,AiTools');
-		if (!Auth::logged_in() && !Auth::valid_ip()) {Auth::loginpage();}
 	}
 
-	public function test() {
-		$this->AiTools->test();
-	}
 
-	public function chat() {
-		$this->view->conversation = Session::get('conversation');
-		$this->view->render('ui/prototype');
-	}
+	public function direct_chat() {
 
-	public function stream() {
-		$this->AiTools->stream_test();
-	}
+		$connection = new \app\models\ai\ConnectionHandler(CHATGPTKEY, 'https://api.openai.com', '/v1/responses');
+		$ai = new \app\models\ai\OpenAI($connection);
 
-	public function drive() {
+		$ai->model = 'gpt-5.1';
+		$ai->reasoning = 'none';
 
-		$from = '2025-11-27';
-		$to = '2025-11-28';
+		$ai->messages = [
+			['role' => 'system', 'content' => 'Bitte antworte auf deutsch.'],
+			['role' => 'user', 'content' => 'Schreib mir ein Haiku'],
+		];
 
-		$mixer = new \app\models\mcp\DriveMixer;
-		//$result = $mixer->analytics($from, $to);
-
-
-		$query = 'Weihnachts Rezepte';
-		$result = $mixer->search($query, $from, $to);
-
-		dd($result);
+		$result = $ai->resolve();
+		
+		dump($result);
 
 	}
-
 
 }

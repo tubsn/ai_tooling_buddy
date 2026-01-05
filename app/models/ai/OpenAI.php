@@ -12,8 +12,10 @@ class OpenAI
 	public ?string $reasoning = null;
 	public array $messages = [];
 	public ?array $jsonSchema = null;
+	public $tools = null; // Register your own Tool Class
 
-	public ?string $debugEventFile = LOGS . 'response-events.json';
+	public ?string $debugEventFile = null;
+	//public ?string $debugEventFile = LOGS . 'response-events.json';
 
 	private ?Closure $onDelta = null;
 	private ?string $lastResponseId = null;
@@ -24,7 +26,9 @@ class OpenAI
 	private array $functionItemIdToCallId = [];
 	private ?ResponseEventCollector $eventCollector = null;
 
-	public function __construct(private ConnectionHandler $connection) {}
+	public function __construct(private ConnectionHandler $connection) {
+		$this->tools = $this->dummy_tools();
+	}
 
 	public function register_tool(string $remoteName, array $schema, ?callable $callable = null): void {
 		$isBuiltin = isset($schema['type']) && $schema['type'] !== 'function' && !isset($schema['function']);
@@ -35,7 +39,18 @@ class OpenAI
 		];
 	}
 
-	public function add_message(string $text, string $role = 'user', $index = null): void {
+	private function dummy_tools() {
+		return new class {
+			public function use(): void {}
+		};
+	}
+
+	public function add_toolhandler($handler) {
+		$handler->connect($this);
+		$this->tools = $handler;
+	}
+
+	public function add_message($text, string $role = 'user', $index = null): void {
 
 		$allowedRoles = ['system', 'user', 'assistant', 'developer'];
 		if (!in_array($role, $allowedRoles, true)) {$role = 'user';}
@@ -78,6 +93,10 @@ class OpenAI
 		$out['role'] = $response['role'];
 		$out['content'] = $response['content'][0]['text'];
 		return $out;
+	}
+
+	public function last_response_id() {
+		return $this->lastResponseId ?? null;
 	}
 
 	public function resolve(): string {
@@ -141,7 +160,8 @@ class OpenAI
 					continue;
 				}
 
-				$this->emit(['type' => 'done']);
+				// this is the absolute streaming ending
+				$this->emit(['type' => 'final']); 
 				break;
 			}
 
@@ -158,9 +178,15 @@ class OpenAI
 
 		$options['model'] = $this->model;
 		$options['stream'] = $useStream;
-		if ($this->reasoning) {$options['reasoning']['effort'] = $this->reasoning;}
+		$options['tool_choice'] = 'auto';
+		$options['tools'] = $this->tools_schema();
+		$options['parallel_tool_calls'] = true;
+		// $options['max_tool_calls'] = 5;
 
-		// this adds responses if tool calls are made 
+		if ($this->reasoning) {
+			$options['reasoning']['effort'] = $this->reasoning;
+		}
+
 		if ($isFollowUp) {
 			$options['previous_response_id'] = $this->lastResponseId;
 			$options['input'] = array_map(
@@ -175,8 +201,6 @@ class OpenAI
 		}
 
 		$options['input'] = $this->messages;
-		$options['tools'] = $this->tools_schema();
-		$options['tool_choice'] = 'auto';
 
 		$outputOptions = $this->response_format_options();
 		if (!empty($outputOptions)) {
@@ -326,6 +350,7 @@ class OpenAI
 				'name' => (string) $name,
 				'arguments' => $arguments,
 			];
+
 		};
 
 		if (isset($response['output']) && is_array($response['output'])) {

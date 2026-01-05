@@ -14,7 +14,7 @@ class ConnectionHandler
 	private string $rawResponseBody = '';
 	private bool $abortStream = false;
 
-	public $debugRequest = true;
+	public $debugRequest = false;
 	public $debugResponse = false;
 
 	public function __construct(

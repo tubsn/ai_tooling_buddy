@@ -37,7 +37,7 @@ final class ResponseEventCollector
 
 		switch ($eventType) {
 			case 'response.created': // required for progress events		
-			case 'response.completed':
+			case 'response.completed': // completed could mean a completed part eg. tool call
 				if (isset($event['response']['id'])) {
 					$this->lastResponseId = (string) $event['response']['id'];
 				}
@@ -97,11 +97,17 @@ final class ResponseEventCollector
 						} elseif ($toolName !== '') {
 							$this->toolCalls[$callId]['name'] = $toolName;
 						}
+
+						($this->emit)(['type' => 'tool_call', 'tool_name' => $toolName, 'content' => 'start']);
 					}
 				}
 
 				if ($type === 'reasoning') {
 					($this->emit)(['type' => 'reasoning', 'content' => 'start']);
+				}
+				if ($type === 'mcp_call') {
+					$toolName = (string) ($item['name'] ?? '');
+					($this->emit)(['type' => 'tool_call', 'tool_name' => $toolName, 'content' => 'start']);
 				}
 
 				break;
@@ -141,6 +147,7 @@ final class ResponseEventCollector
 						}
 						if ($finalArgs !== '') {
 							$this->toolCalls[$callId]['arguments'] = $finalArgs;
+							($this->emit)(['type' => 'tool_call', 'arguments' => $finalArgs]);							
 						}
 					}
 				}
@@ -189,6 +196,7 @@ final class ResponseEventCollector
 
 			case 'response.web_search_call.searching':
 				($this->emit)(['type' => 'progress', 'content' => $event['item'] ?? $event]);
+				($this->emit)(['type' => 'tool_call', 'tool_name' => 'Websearch', 'content' => 'start']);
 				break;
 
 			case 'response.error':

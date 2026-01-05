@@ -20,10 +20,6 @@ data() {
 	}
 },
 
-components: {
-	//'section-selector': SectionSelectorComponent,
-},
-
 computed: {
 	chars() {
 		if (!this.output) {return 0}
@@ -54,9 +50,6 @@ methods: {
 	getUserSettings() {
 		if (localStorage.historyExpanded == 'true') {this.historyExpanded = true}
 		else {this.historyExpanded = false}
-
-		if (localStorage.model) {this.model = localStorage.model}
-		if (localStorage.userSelectedModel) {this.userSelectedModel = localStorage.userSelectedModel}
 	},
 
 	async fetchHistory() {
@@ -64,12 +57,6 @@ methods: {
 		if (!response.ok) {return}
 		let json = await response.json()
 		this.history = json
-	},
-
-	filterInstructions(node) {
-		// Removes OpenAI instrucational Arrays e.g. for Vision Uploads
-		if (node[0].text) {return node[0].text}
-		else {return node}
 	},
 
 	clearLogs() {
@@ -89,6 +76,7 @@ methods: {
 
 		const requestURL = '/stream'
 		let payload = {input : this.input}
+		// The Payload could be extended with other parameters like the ai model
 
 		const response = await fetch(requestURL, {
 			method: 'POST',
@@ -96,7 +84,7 @@ methods: {
 			body: JSON.stringify(payload)
 		});
 
-		if (!response.ok) throw new Error('Kanal-Erstellung fehlgeschlagen');
+		if (!response.ok) throw new Error('SSE Setup failed');
 		
 		const data = await response.json()
 		const streamURL = data.url
@@ -114,7 +102,13 @@ methods: {
 		if (!url) {url = '/stream'}
 
 		this.eventSource = new EventSource(url, { withCredentials: true });
+		
+		// We can use different handlers for each chunk type
+
+		// the default message chunk contains Json which is processed in handleStream
 		this.eventSource.addEventListener('message', (event) => {this.handleStream(JSON.parse(event.data))})
+		
+		// Events that might stop the stream
 		this.eventSource.addEventListener('done', (event) => {this.stopStream()})
 		this.eventSource.addEventListener('stop', (event) => {this.stopStream()})
 		this.eventSource.addEventListener("error", (event) => {
@@ -130,6 +124,7 @@ methods: {
 
 	},
 
+	// Process some of the openAI responsetypes (delta is the default and contains text chunks)
 	handleStream(chunk) {
 		switch (chunk.type) {
 			case 'delta': {
@@ -169,22 +164,8 @@ methods: {
 
 	stopStream() {
 
-
-
 		marked.use({breaks: true, mangle:false, headerIds: false,});
 		this.output = marked.parse(this.output)
-
-		/*
-		Vue.nextTick(() => {
-			hljs.highlightAll();
-			const outputDiv = document.querySelector(".output")
-			if (outputDiv) {
-				outputDiv.contentEditable = 'true'
-			}
-		})
-		*/
-
-
 
 		this.eventSource.close()
 		this.stopClock()
