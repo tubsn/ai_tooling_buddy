@@ -19,7 +19,7 @@ class Home extends Controller {
 
 	public function chat() {
 		$this->view->conversation = Session::get('conversation');
-		$this->view->render('ui/chat');
+		$this->view->render('ui/prototype');
 	}
 
 	public function stream() {
@@ -32,7 +32,11 @@ class Home extends Controller {
 		$to = '2025-11-28';
 
 		$mixer = new \app\models\mcp\DriveMixer;
-		$result = $mixer->analytics($from, $to);
+		//$result = $mixer->analytics($from, $to);
+
+
+		$query = 'Weihnachts Rezepte';
+		$result = $mixer->search($query, $from, $to);
 
 		dd($result);
 

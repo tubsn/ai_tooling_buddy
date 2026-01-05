@@ -3,6 +3,7 @@
 namespace app\models;
 use \app\models\ai\OpenAI;
 use \app\models\ai\MCPTools;
+use \app\models\Prompts;
 use \app\models\ai\ConnectionHandler;
 use flundr\utility\Session;
 use flundr\utility\Log;
@@ -31,10 +32,18 @@ class AiTools
 		$ai->model = 'gpt-5.1';
 		$ai->reasoning = 'none';
 
+		$prompts = new Prompts();
+		$prompt = $prompts->get(247);
+
+		$ai->add_message($prompt['content'], 'system');
+		$ai->add_message($input, 'user');
+
+		/*
 		$ai->messages = [
 			['role' => 'system', 'content' => 'Bitte antworte auf deutsch.'],
 			['role' => 'user', 'content' => $input],
 		];
+		*/
 
 		$conversation = Session::get('conversation');
 		if (!empty($conversation)) {
@@ -44,9 +53,10 @@ class AiTools
 
 		$this->init_streaming_header();
 
+		// Note the str_pad is important for some webservers to stream SSE
 		$this->ai->stream(function (array $event) {
 			echo 'data: ' . json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
-			echo str_pad('',4096)."\n";
+			echo str_pad('', 4096)."\n";
 			flush();
 		});
 
@@ -81,25 +91,14 @@ class AiTools
 
 		$ai->model = 'gpt-5.1';
 		$ai->reasoning = 'none';
-		//$ai->jsonMode = true;
 
-		/* Force a Json_Schema
-		$ai->jsonSchema = [
-			'type' => 'object',
-			'properties' => [
-				'weekday' => ['type' => 'string'],
-			],
-			'required' => ['weekday'],
-			'additionalProperties' => false,
-		];
-		*/
 
 		$ai->messages = [
 			['role' => 'system', 'content' => 'Bitte antworte auf deutsch.'],
 			['role' => 'user', 'content' => 'welcher tag war der 15.04.2024'],
 		];
 
-		//$this->direct();
+		//this->direct();
 		//die;
 
 		$this->stream_dump();
@@ -116,7 +115,7 @@ class AiTools
 
 
 	public function direct() {
-		$result = $this->ai->complete();
+		$result = $this->ai->resolve();
 		dd($result);
 	}
 

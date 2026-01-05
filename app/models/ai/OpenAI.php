@@ -8,7 +8,7 @@ use flundr\utility\Session;
 class OpenAI
 {
 	public bool $jsonMode = false;
-	public string $model = 'gpt-4.1-mini';
+	public string $model = 'gpt-5.1';
 	public ?string $reasoning = null;
 	public array $messages = [];
 	public ?array $jsonSchema = null;
@@ -80,7 +80,7 @@ class OpenAI
 		return $out;
 	}
 
-	public function complete(): string {
+	public function resolve(): string {
 		$finalText = '';
 
 		while (true) {

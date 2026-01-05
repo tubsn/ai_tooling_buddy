@@ -16,16 +16,45 @@ class MCPTools
 		$ai->register_tool('SlackMCP', $toolSchema);
 		*/
 
-		$mixer = new \app\models\mcp\DriveMixer;
+
+		$ai->register_tool(
+			'DriveRAG',
+			[
+				'name' => 'DriveRAG',
+				'description' => 'Search Engine, that grants Access to an archive of articles published by bnn.de. You can gather valid information here on local news covering topics in Karlsruhe and Baden Württemberg. This function will supply you with a number of articles that are relevant to your search topic, the results include a "score" from 0 to 1 which determins hoch relevant that article is to your search. 1 Means highly relevant 0 not so relevant. Search the database with a query which consists of boiled down semantic tags which fit the users request.',
+				'parameters' => [
+					'type' => 'object',
+					'properties' => [
+						'query' => [
+							'type' => 'string',
+							'description' => 'The topic you are looking for. Broke down into 1-6 short seo like tags.',
+						],
+						'from' => [
+							'type' => 'string',
+							'description' => 'Daterange starting from in YYYY-MM-DD',
+						],
+						'to' => [
+							'type' => 'string',
+							'description' => 'Daterange to in YYYY-MM-DD',
+						],						
+					],
+					'required' => ['query'],
+				],
+			],
+			function (array $args) {
+				$mixer = new \app\models\mcp\DriveMixer;
+
+				$query = $args['query'];
+				$from = $args['from'] ?? 'today -7days';
+				$to = $args['to'] ?? 'today';
+
+				return $mixer->search($query,$from,$to);
+			}
+		);
 		
-		/*
-		$from = '2025-11-27';
-		$to = '2025-11-28';
-		$result = $mixer->analytics($from, $to);
-		dd($result);
-		*/
 	
-		
+		/*
+		$mixer = new \app\models\mcp\DriveMixer;
 		$ai->register_tool(
 			'DriveMixer',
 			[
@@ -48,6 +77,7 @@ class MCPTools
 			],
 			function (array $args) use ($mixer) {return $mixer->analytics($args);}
 		);
+		*/
 		
 		
 		/*
@@ -64,6 +94,7 @@ class MCPTools
 			],		
 		);
 		*/
+		
 
 		/*
 		$ai->register_tool(
@@ -73,13 +104,13 @@ class MCPTools
 				'server_label' => 'ChristianMCP',
 				'server_url' => 'https://compulsory-brown-dormouse.fastmcp.app/mcp',
 				'require_approval' => 'never',
-				//'headers' => [
-				//	'Authorization' => 'Bearer ' . MCP_TESTSERVER_AUTH,
-				//],				
+				'headers' => [
+					'Authorization' => 'Bearer ' . MCP_TESTSERVER_AUTH,
+				],				
 			],		
 		);
 		*/
-		
+				
 
 		/*						
 		$ai->register_tool(
@@ -95,6 +126,7 @@ class MCPTools
 			function (array $args) {return $this->current_datetime();}
 		);
 		*/
+		
 				
 		/*
 		$ai->register_tool(

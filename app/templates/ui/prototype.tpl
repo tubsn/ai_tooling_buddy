@@ -12,7 +12,8 @@
 
 		<section class="output">Output:
 			<span class="output-info" v-if="reasoning">(nutze Reasoning)</span>
-			<textarea v-model="output" tabindex="0" class="output"></textarea>
+			<textarea v-if="loading" class="io-output" v-html="output" contenteditable="true" tabindex="0" class="output"></textarea>
+			<div v-else class="io-output" v-html="output" contenteditable="true" tabindex="0" class="output"></div>
 		</section>
 
 	</div>

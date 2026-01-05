@@ -103,6 +103,7 @@ final class ResponseEventCollector
 				if ($type === 'reasoning') {
 					($this->emit)(['type' => 'reasoning', 'content' => 'start']);
 				}
+
 				break;
 			}
 
@@ -183,6 +184,10 @@ final class ResponseEventCollector
 
 
 			case 'response.mcp_call_arguments.done':
+				($this->emit)(['type' => 'progress', 'content' => $event['item'] ?? $event]);
+				break;
+
+			case 'response.web_search_call.searching':
 				($this->emit)(['type' => 'progress', 'content' => $event['item'] ?? $event]);
 				break;
 

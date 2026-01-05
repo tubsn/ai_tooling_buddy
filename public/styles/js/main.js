@@ -168,6 +168,24 @@ methods: {
 	},
 
 	stopStream() {
+
+
+
+		marked.use({breaks: true, mangle:false, headerIds: false,});
+		this.output = marked.parse(this.output)
+
+		/*
+		Vue.nextTick(() => {
+			hljs.highlightAll();
+			const outputDiv = document.querySelector(".output")
+			if (outputDiv) {
+				outputDiv.contentEditable = 'true'
+			}
+		})
+		*/
+
+
+
 		this.eventSource.close()
 		this.stopClock()
 		this.autofocus()
