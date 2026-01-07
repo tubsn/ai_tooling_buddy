@@ -24,6 +24,10 @@ class Home extends Controller {
 			['role' => 'user', 'content' => 'Schreib mir ein Haiku'],
 		];
 
+		// Optional register serverside Tools [toolname, MCP schema] 
+		// this one enables the predefined OpenAIWebsearch
+		//$this->ai->register_tool('file_search', ['type' => 'file_search']);
+
 		$result = $ai->resolve();
 		
 		dump($result);
